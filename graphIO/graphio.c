@@ -79,16 +79,15 @@ int read_mtx_to_crs(crsGraph* gr, const char* filename) {
     /* Reading file to count degrees of each vertex */
     for(i = 0; i < nz_size; i++) {
 
-       row--;
-       col--;
-       if (row == col) {
-           gr -> nz --;
-           continue; //we don't need loops
-       }
-       edge_num[row]++;
-       if (mm_is_symmetric(gr -> matcode)) {
-           edge_num[col]++;
-           gr -> nz ++;
+       if (row == col) { gr->nz--; }
+       else
+       { row--;
+         col--;
+         edge_num[row]++;
+         if (mm_is_symmetric(gr->matcode)) {
+               edge_num[col]++;
+               gr->nz++;
+           }
        }
 
        fscanf(file1, "%d %d", &row, &col);

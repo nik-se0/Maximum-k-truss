@@ -1,5 +1,6 @@
 #include "graph.h"
 
+using namespace std;
 
 void getEid(crsGraph* gr, int* eid, Edge* idEdge) 
 {
@@ -123,3 +124,140 @@ int  SupAI(crsGraph* gr, Edge* edTo, int* EdgeSupport)
   return maxSup;
 }
 
+//Алгоритм
+void Curr_init(long nE, int* EdgeSupport, int k_level, int* curr, long* Tail)
+{ for (long i = 0; i < nE; i++) 
+  { if (EdgeSupport[i] == k_level) 
+    { curr[(*Tail)] = i;
+      (*Tail) = (*Tail) + 1;
+    }
+  }
+}
+void SubLevel(crsGraph* gr, int* curr, long Tail, int* EdgeSupport, int k_level, int* next, long* nextTail, bool* flag, Edge* edTo, int * eid) 
+{  
+   for (long i = 0; i < Tail; i++)
+   { int e1 = curr[i];
+     Edge edge = edTo[e1];
+     int u = edge.u;
+     int v = edge.v;
+     int uStart = gr->Xadj[u], uEnd = gr->Xadj[u + 1];
+     int vStart = gr->Xadj[v], vEnd = gr->Xadj[v + 1];
+     unsigned int n = (uEnd - uStart) + (vEnd - vStart);
+     int j = uStart, k = vStart;
+
+     for (unsigned int innerIdx = 0; innerIdx < n; innerIdx++) 
+     { if (j >= uEnd) { break;}
+       else if (k >= vEnd) { break; }
+       else if (gr->Adjncy[j] == gr->Adjncy[k]) 
+       { int e2 = eid[k];  //<v,w>
+         int e3 = eid[j];  //<u,w> 
+         if ((!flag[e2]) && (!flag[e3]))  //If e1, e2, e3 forms a triangle
+         { if (EdgeSupport[e2] > k_level && EdgeSupport[e3] > k_level) //Decrease sup of both e2 and e3   
+           { EdgeSupport[e2] = EdgeSupport[e2] - 1; //Process e2  
+             if (EdgeSupport[e2] == k_level) 
+             { next[(*nextTail)] = e2;
+               (*nextTail) = (*nextTail) + 1;
+             }
+             EdgeSupport[e3] = EdgeSupport[e3] - 1; //Process e3     
+             if (EdgeSupport[e3] == k_level) 
+             { next[(*nextTail)] = e3;
+               (*nextTail) = (*nextTail) + 1;
+             }
+           }
+           else if (EdgeSupport[e2] > k_level) 
+           { //process e2 
+             EdgeSupport[e2] = EdgeSupport[e2] - 1;
+             if (EdgeSupport[e2] == k_level)
+             { next[(*nextTail)] = e2;
+               (*nextTail) = (*nextTail) + 1;
+             }
+           }
+           else if (EdgeSupport[e3] > k_level) 
+           { //process e3 
+             EdgeSupport[e3] = EdgeSupport[e3] - 1;
+             if (EdgeSupport[e3] == k_level) 
+             { next[(*nextTail)] = e3;
+               (*nextTail) = (*nextTail) + 1;
+             }
+            }
+         }
+         j++; k++;
+       }
+       else if (gr->Adjncy[j] < gr->Adjncy[k]) { j++;}
+       else if (gr->Adjncy[k] < gr->Adjncy[j]) { k++;}
+      }
+     flag[e1] = true;
+    }
+ 
+
+}
+int K_Truss(crsGraph* gr, int* EdgeSupport, Edge* edTo, int* eid)
+{  long nE = gr->nz / 2;
+   long nV= gr->V;
+   long Tail = 0;
+   long nextTail = 0;
+   int* curr = (int*)malloc(nE * sizeof(int));
+   int* next = (int*)malloc(nE * sizeof(int));
+   bool* flag = (bool*)malloc(nE * sizeof(bool)); //An array to mark flag array
+   for (int e = 0; e < nE; e++) 
+    { flag[e] = false; }
+
+   //Подсчет k_truss
+   int k_level = 0;
+   long todo = nE;
+   while (todo > 0)
+    { Curr_init(nE, EdgeSupport, k_level, curr, &Tail);
+      while (Tail > 0)
+      { todo = todo - Tail;
+        SubLevel(gr, curr, Tail, EdgeSupport, k_level, next, &nextTail, flag, edTo, eid);
+        int* tempCurr = curr;
+        curr = next;
+        next = tempCurr;
+        Tail = nextTail;
+        nextTail = 0;
+      }
+      k_level = k_level + 1;
+    }
+
+    //Free memory
+    free(next);
+    free(curr);
+    free(flag);
+   
+   return k_level;
+}
+
+//Статистика
+void display_stats(int* EdgeSupport, long nE) 
+{
+    int minSup = INT_MAX;
+    int maxSup = 0;
+
+    for (long i = 0; i < nE; i++) {
+        if (minSup > EdgeSupport[i]) {
+            minSup = EdgeSupport[i];
+        }
+
+        if (maxSup < EdgeSupport[i]) {
+            maxSup = EdgeSupport[i];
+        }
+    }
+
+    long numEdgesWithMinSup = 0, numEdgesWithMaxSup = 0;
+
+    for (long i = 0; i < nE; i++) {
+        if (EdgeSupport[i] == minSup) {
+            numEdgesWithMinSup++;
+        }
+
+        if (EdgeSupport[i] == maxSup) {
+            numEdgesWithMaxSup++;
+          // printf("%d\n",i);
+        }
+    }
+
+    printf("\nMin-truss: %d\n#Edges in Min-truss: %ld\n\n", minSup + 2, numEdgesWithMinSup);
+    printf("Max-truss: %d\n#Edges in Max-truss: %ld\n\n", maxSup + 2, numEdgesWithMaxSup);
+
+
+}
