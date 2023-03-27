@@ -12,69 +12,69 @@ extern "C" {
 
 int main(int argc, char* argv[])
 {
-    //Обработка комадной строки: (Кол-во потоков) (Имя файла)
+    //РћР±СЂР°Р±РѕС‚РєР° РєРѕРјР°РґРЅРѕР№ СЃС‚СЂРѕРєРё: (РљРѕР»-РІРѕ РїРѕС‚РѕРєРѕРІ) (РРјСЏ С„Р°Р№Р»Р°)
     std::stringstream convert{ argv[1] };
     int th; convert >> th;
     char* s1 = argv[2];
 
-    //Иницализация графа
+    //РРЅРёС†Р°Р»РёР·Р°С†РёСЏ РіСЂР°С„Р°
     crsGraph gr;
     init_graph(&gr);
     read_mtx_to_crs(&gr, s1);
     cout << "\tA graph with " << gr.V << " vertices and " << gr.nz / 2 << " edges is loaded\n\n";
     sort_adj(&gr);
 
-    //Инициализация доп.структур для k-truss
-    int* EdgeSupport = new int[gr.nz / 2];      // поддержка ребра 
-    Edge* edTo = new Edge[gr.nz / 2];           // массив ребер
-    int* eid = new int[gr.nz];                  // id ребра для вершин
+    //РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РґРѕРї.СЃС‚СЂСѓРєС‚СѓСЂ РґР»СЏ k-truss
+    int* EdgeSupport = new int[gr.nz / 2];      // РїРѕРґРґРµСЂР¶РєР° СЂРµР±СЂР° 
+    Edge* edTo = new Edge[gr.nz / 2];           // РјР°СЃСЃРёРІ СЂРµР±РµСЂ
+    int* eid = new int[gr.nz];                  // id СЂРµР±СЂР° РґР»СЏ РІРµСЂС€РёРЅ
     for (long i = 0; i < gr.nz / 2; i++) {
         EdgeSupport[i] = 0;
     }
     getEid(&gr, eid, edTo);
 
     if (th == 1) 
-    { //Послеовательный алгоритм
+    { //РџРѕСЃР»РµРѕРІР°С‚РµР»СЊРЅС‹Р№ Р°Р»РіРѕСЂРёС‚Рј
 
         cout << "\tSERIAL:\n";
-        //Подсчет поддержки
+        //РџРѕРґСЃС‡РµС‚ РїРѕРґРґРµСЂР¶РєРё
         auto begin = std::chrono::steady_clock::now();
 #if AM
-        SupAM(&gr, eid, EdgeSupport);         //Маркировка смежности  
+        SupAM(&gr, eid, EdgeSupport);         //РњР°СЂРєРёСЂРѕРІРєР° СЃРјРµР¶РЅРѕСЃС‚Рё  
 #endif
 #if AI
-        SupAI(&gr, edTo, EdgeSupport);        //Пересечение смежности
+        SupAI(&gr, edTo, EdgeSupport);        //РџРµСЂРµСЃРµС‡РµРЅРёРµ СЃРјРµР¶РЅРѕСЃС‚Рё
 #endif
         auto end = std::chrono::steady_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
         cout << "The time support:\t" << (double)elapsed_ms.count() / 1000000 << "\n";
 
-        //Подсчет k-truss
+        //РџРѕРґСЃС‡РµС‚ k-truss
         auto begin1 = std::chrono::steady_clock::now();
         K_Truss(&gr, EdgeSupport, edTo, eid);
         auto end1 = std::chrono::steady_clock::now();
         auto elapsed_ms1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - begin1);
         cout << "The time K-truss:\t" << (double)elapsed_ms1.count() / 1000000 << "\n\n";
 
-        //Результат
+        //Р РµР·СѓР»СЊС‚Р°С‚
         Print_res(gr.nz / 2, EdgeSupport);
     }
     else
-    { //Паралленьный алгоритм
+    { //РџР°СЂР°Р»Р»РµРЅСЊРЅС‹Р№ Р°Р»РіРѕСЂРёС‚Рј
 
         for (long i = 0; i < gr.nz / 2; i++) {
             EdgeSupport[i] = 0;
         }
 
         cout << "\tPARALLEL " << th << " thread:\n";
-        //Подсчет поддержки
+        //РџРѕРґСЃС‡РµС‚ РїРѕРґРґРµСЂР¶РєРё
 #pragma omp barrier
         double itime = omp_get_wtime();
         SupP(&gr, eid, EdgeSupport, th);
         double ftime = omp_get_wtime();
         double exec_time = ftime - itime;
         cout << "The time support:\t" << exec_time << "\n";
-        //Подсчет k-truss
+        //РџРѕРґСЃС‡РµС‚ k-truss
 #pragma omp barrier
         double itime1 = omp_get_wtime();
         PK_Truss(&gr, EdgeSupport, edTo, eid);
@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
         double exec_time1 = ftime1 - itime1;
         cout << "The time K-truss:\t" << exec_time1 << "\n\n";
 
-        //Результат
+        //Р РµР·СѓР»СЊС‚Р°С‚
         Print_res(gr.nz / 2, EdgeSupport);
 
     }
