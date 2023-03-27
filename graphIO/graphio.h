@@ -30,6 +30,7 @@ int free_graph_pointers(crsGraph* gr);
 int read_mtx_to_crs(crsGraph* gr, const char* filename);
 int read_gr_to_crs(crsGraph* gr, const char* filename);
 int write_crs_to_mtx(crsGraph* gr, const char* filename);
+int write_crs_to_mtx_image(crsGraph* gr, const char* filename);
 int read_arr_from_bin(double* arr, int size, const char* filename);
 int write_arr_to_bin(double* arr, int size, const char* filename);
 int write_arr_to_txt(double* arr, int size, const char* filename);

@@ -1,61 +1,91 @@
-//  main.c
-//  GraphIO
-//
-//  Created by Andrew Lebedev on 29.09.2020.
-//
-//#include <time.h>
+#include <iostream>
 extern "C" {
 #include "graphio.h" 
 }
 #include "graph.h"
-#include <iostream>
-#include "time.h"
+#include <chrono>
+#include <omp.h>
+#include <sstream>
 
-int main() 
-{ 
+#define AM 1
+#define AI (AM%2+1)%2
+
+int main(int argc, char* argv[])
+{
+    //Обработка комадной строки: (Кол-во потоков) (Имя файла)
+    std::stringstream convert{ argv[1] };
+    int th; convert >> th;
+    char* s1 = argv[2];
+
+    //Иницализация графа
     crsGraph gr;
-    
-   // char* s1 = "mat.mtx";
-   // char* s2 = "write.mtx"; nos4
-   // char* s1 = "C:\\tmp\\mat.mtx";
-    char* s2 = "C:\\tmp\\write.mtx";
-    char* s1 = "C:\\tmp\\test\\cit-Patents.mtx";
     init_graph(&gr);
     read_mtx_to_crs(&gr, s1);
-    write_crs_to_mtx(&gr, s2);
+    cout << "\tA graph with " << gr.V << " vertices and " << gr.nz / 2 << " edges is loaded\n\n";
     sort_adj(&gr);
-     
-    //Инициализация
-    int* EdgeSupport = (int*)calloc(gr.nz / 2, sizeof(int)); // поддержка ребра (для подсчет треугольников)
-    for (long i = 0; i < gr.nz / 2; i++) 
-    { EdgeSupport[i] = 0;}
-    Edge* edTo = (Edge*)malloc((gr.nz / 2) * sizeof(Edge)); // массив ребер
-    int* eid = (int*)malloc(gr.nz * sizeof(int));           // id ребра для вершин
+
+    //Инициализация доп.структур для k-truss
+    int* EdgeSupport = new int[gr.nz / 2];      // поддержка ребра 
+    Edge* edTo = new Edge[gr.nz / 2];           // массив ребер
+    int* eid = new int[gr.nz];                  // id ребра для вершин
+    for (long i = 0; i < gr.nz / 2; i++) {
+        EdgeSupport[i] = 0;
+    }
     getEid(&gr, eid, edTo);
-    printf("\n\nWRITE DONE\n\n");
 
+    if (th == 1) 
+    { //Послеовательный алгоритм
 
-    clock_t time_start = clock();
-    
-    //Подсчет поддержки
-    SupAM(&gr, eid, EdgeSupport);         //Маркировка смежности 
-   //SupAI(gr, edTo, EdgeSupport);        //Пересечение смежности
+        cout << "\tSERIAL:\n";
+        //Подсчет поддержки
+        auto begin = std::chrono::steady_clock::now();
+#if AM
+        SupAM(&gr, eid, EdgeSupport);         //Маркировка смежности  
+#endif
+#if AI
+        SupAI(&gr, edTo, EdgeSupport);        //Пересечение смежности
+#endif
+        auto end = std::chrono::steady_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+        cout << "The time support:\t" << (double)elapsed_ms.count() / 1000000 << "\n";
 
-    K_Truss(&gr, EdgeSupport, edTo, eid);
+        //Подсчет k-truss
+        auto begin1 = std::chrono::steady_clock::now();
+        K_Truss(&gr, EdgeSupport, edTo, eid);
+        auto end1 = std::chrono::steady_clock::now();
+        auto elapsed_ms1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - begin1);
+        cout << "The time K-truss:\t" << (double)elapsed_ms1.count() / 1000000 << "\n\n";
 
-    clock_t time_end = clock() - time_start;
-    printf("%fl", (double)time_end / CLOCKS_PER_SEC);
+        //Результат
+        Print_res(gr.nz / 2, EdgeSupport);
+    }
+    else
+    { //Паралленьный алгоритм
 
+        for (long i = 0; i < gr.nz / 2; i++) {
+            EdgeSupport[i] = 0;
+        }
 
-      //Статистика
-    display_stats(EdgeSupport, gr.nz/2);
+        cout << "\tPARALLEL " << th << " thread:\n";
+        //Подсчет поддержки
+#pragma omp barrier
+        double itime = omp_get_wtime();
+        SupP(&gr, eid, EdgeSupport, th);
+        double ftime = omp_get_wtime();
+        double exec_time = ftime - itime;
+        cout << "The time support:\t" << exec_time << "\n";
+        //Подсчет k-truss
+#pragma omp barrier
+        double itime1 = omp_get_wtime();
+        PK_Truss(&gr, EdgeSupport, edTo, eid);
+        double ftime1 = omp_get_wtime();
+        double exec_time1 = ftime1 - itime1;
+        cout << "The time K-truss:\t" << exec_time1 << "\n\n";
 
-    //Free memory
-   free_graph(&gr);
-   if (edTo != NULL)
-   { free(edTo);}
-   if (EdgeSupport != NULL)
-   { free(EdgeSupport);}
-         
-   return 0;
+        //Результат
+        Print_res(gr.nz / 2, EdgeSupport);
+
+    }
+
+    return 0;
 }

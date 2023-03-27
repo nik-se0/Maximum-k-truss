@@ -26,18 +26,18 @@ int free_graph_pointers(crsGraph* gr) {
     return 0;
 }
 int read_mtx_to_crs(crsGraph* gr, const char* filename) {
-    
-    /* variables */
+        
+    // variables 
     int N, i, row, col, nz_size, j=0;
     int *edge_num, *last_el;
     double val;
     fpos_t position;
     FILE *file, *file1;
 
-    char* line="";
+    char line[100000];
     char* s="";
      
-    /* mtx correctness check */
+    // mtx correctness check 
     if ((file = fopen(filename, "r")) == NULL) {
         printf("Cannot open file\n");
         return 1;
@@ -51,7 +51,6 @@ int read_mtx_to_crs(crsGraph* gr, const char* filename) {
         return 1;
     }
             mm_read_mtx_crd_size(file1, &(gr -> V), &N, &(gr -> nz));
-    
     if (mm_is_complex(gr -> matcode) || mm_is_array(gr -> matcode)) {
         printf("Thsis application doesn't support %s", mm_typecode_to_str(gr -> matcode));
         return 1;
@@ -60,26 +59,25 @@ int read_mtx_to_crs(crsGraph* gr, const char* filename) {
         printf("Is not a square matrix\n");
         return 1;
     }
-    
-    /* Allocating memmory to store adjacency list */
+    // Allocating memmory to store adjacency list 
     last_el = (int*)malloc(sizeof(int) * gr -> V);
     edge_num = (int*)malloc(sizeof(int) * gr -> V);
     for (i = 0; i < (gr -> V); i++) {
         edge_num[i] = 0;
     }
-    
-    /* Saving value of nz so we can change it */
+    // Saving value of nz so we can change it 
     nz_size = gr -> nz;
-
-
-    val = 0;
-    fgets(line, MM_MAX_LINE_LENGTH, file1);
+    val = 0;  
+    
+    char str[80];
+    fscanf(file1, "%[^\n]", line, sizeof(line));
     j = sscanf(line, "%d %d %lg", &row, &col, &val);
-        
-    /* Reading file to count degrees of each vertex */
+   // j = 2; ///!
+    // Reading file to count degrees of each vertex 
     for(i = 0; i < nz_size; i++) {
 
-       if (row == col) { gr->nz--; }
+       if (row == col) 
+       { gr->nz--; }
        else
        { row--;
          col--;
@@ -90,29 +88,29 @@ int read_mtx_to_crs(crsGraph* gr, const char* filename) {
            }
        }
 
+
        fscanf(file1, "%d %d", &row, &col);
        if (j == 3) { fscanf(file1, "%lg", &val); }
        //j=fscanf(file1, "%d %d %lg", &row, &col, &val);
     }
 
-    /* Checking if graph already has arrays */
+
+    // Checking if graph already has arrays 
     if ((gr -> Adjncy != NULL) || (gr -> Xadj != NULL) || (gr -> Eweights != NULL)) {
        free_graph_pointers(gr);
     }
-
-    /* Creating CRS arrays */
+    // Creating CRS arrays 
     gr -> Adjncy = (int*)malloc(sizeof(int) * (gr -> nz));
     gr -> Xadj = (int*)malloc(sizeof(int) * ((gr -> V) + 1));
     gr -> Eweights = (double*)malloc(sizeof(double) * (gr -> nz));
 
-    /* Writing data in Xadj and last_el */
+    // Writing data in Xadj and last_el 
     gr -> Xadj[0] = 0;
     for(i = 0; i < gr -> V; i++) {
        gr -> Xadj[i+1] = gr -> Xadj[i] + edge_num[i];
        last_el[i] = gr -> Xadj[i];
     }
-
-    /* Reading file to write it's content in crs */
+    // Reading file to write it's content in crs 
     for(i = 0; i < nz_size; i++) {
 
        fscanf(file, "%d %d", &row, &col);
@@ -132,6 +130,7 @@ int read_mtx_to_crs(crsGraph* gr, const char* filename) {
            last_el[col]++;
        }
     }
+
     free(edge_num);
     free(last_el);
     fclose(file);
@@ -249,10 +248,44 @@ int write_crs_to_mtx(crsGraph* gr, const char* filename) {
     for(i = 0; i < gr -> V; i++) {
         for(j = gr -> Xadj[i]; j < gr -> Xadj[i+1]; j++) {
             if (i > gr -> Adjncy[j] || !mm_is_symmetric(gr -> matcode)) {
-                fprintf(f, "%d %d %lg\n", i + 1, gr -> Adjncy[j] + 1, gr -> Eweights[j]);
+               //fprintf(f, "%d %d %lg\n", i + 1, gr -> Adjncy[j] + 1, gr -> Eweights[j]);
+                fprintf(f, "%d %d\n", i + 1, gr->Adjncy[j] + 1);
+
             }
         }
     }
+    fclose(f);
+    return 0;
+}
+int write_crs_to_mtx_image(crsGraph* gr, const char* filename) {
+    int i, j;
+    FILE* f;
+    if ((f = fopen(filename, "w")) == NULL) {
+        printf("Can't open file\n");
+        return 1;
+    }
+
+    int size = gr->V;
+    int** M = (int**)malloc(size * sizeof(int*));
+    for (i = 0; i < size; i++) {
+        M[i] = (int*)malloc(size * sizeof(int));
+    }
+    
+    
+    for (i = 0; i < gr->V; i++) {
+        for (j = gr->Xadj[i]; j < gr->Xadj[i + 1]; j++) {
+            M[i][gr->Adjncy[j]]= 1;
+        }
+    }
+
+    for (i = 0; i < size; i++) {
+        for (j = 0; j < size; j++) {
+           if(M[i][j]==1) fprintf(f, "1 ");
+           else fprintf(f, "0 ");
+        }
+        fprintf(f,"\n");
+    }
+
     fclose(f);
     return 0;
 }
