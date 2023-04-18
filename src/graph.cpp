@@ -232,23 +232,27 @@ int K_Truss(crsGraph* gr, int* EdgeSupport, Edge* edTo, int* eid)
 
 //Параллельный алгоритм
 //Поддержка
-void SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t){
+vvoid SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t) {
     th = t;
-#pragma omp parallel num_threads(th) 
+
+#pragma omp parallel num_threads(th) //private(EdgeSupport)
     {
-        long nV = gr->V;
-        long nE = gr->nz / 2;
-        int* startEd = new int[nV]; 
-        int* X = new int[gr->V];
-        for (int i = 0; i < gr->V; i++) {
-            X[i] = 0;
+   long nV = gr->V;
+    long nE = gr->nz / 2;
+    int* startEd = new int[nV];
+    int* X = new int[gr->V];
+        int* BufSup= new int[nE];   
+#pragma omp for schedule( static) 
+        for (long i = 0; i < nE; i++) {
+            BufSup[i] = 0;
         }
 
 #pragma omp for schedule( static) 
         for (int i = 0; i < nV; i++) {
+            X[i] = 0;
             int j = gr->Xadj[i];
             int nV = gr->Xadj[i + 1];
-            while (j < nV && gr->Adjncy[j] < i) {       
+            while (j < nV && gr->Adjncy[j] < i) {
                 j++;
             }
             startEd[i] = j;
@@ -268,12 +272,7 @@ void SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t){
                     if (w <= u) { break; }
                     if (X[w]) {
                         int e1 = eid[X[w] - 1], e2 = eid[j], e3 = eid[k];
-#pragma omp atomic
-                        EdgeSupport[e1]++;
-#pragma omp atomic
-                        EdgeSupport[e2]++;
-#pragma omp atomic
-                        EdgeSupport[e3]++;
+                        BufSup[e1]++; BufSup[e2]++; BufSup[e3]++;
                     }
                 }
             }
@@ -281,6 +280,13 @@ void SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t){
             for (int j = startEd[u]; j < gr->Xadj[u + 1]; j++) {
                 int w = gr->Adjncy[j];
                 X[w] = 0;
+            }
+        }
+        for (int i = 0; i < nE; i++)
+        {
+            if (BufSup[i] != 0) {
+#pragma omp atomic
+                EdgeSupport[i] += BufSup[i];
             }
         }
 #pragma omp barrier
