@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 2.8)
 
 message( STATUS "x${CMAKE_CXX_COMPILER_ID}")
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "C:/Program Files (x86)/Intel/oneAPI/compiler/2022.0.3/windows/IntelDPCPP")

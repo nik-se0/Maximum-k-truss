@@ -398,6 +398,7 @@ int sort_crs(crsGraph* gr)
 }
 int vid_compare(const void* a, const void* b) { return (*(int*)a - *(int*)b);}
 void sort_adj(crsGraph* gr)
-{ for (long i = 0; i < gr->V; i++) 
+{ int i=0;
+  for (i = 0; i < gr->V; i++) 
   { qsort(gr->Adjncy + gr->Xadj[i], gr->Xadj[i + 1] - gr->Xadj[i], sizeof(int), vid_compare);}
 }
