@@ -3,26 +3,34 @@ extern "C" {
 #include "graphio.h" 
 }
 #include "graph.h"
-#include <sys/time.h>
+#include "bin_reader.h"
+//#include <sys/time.h>
 #include <omp.h>
 #include <sstream>
+
+#define TIME 0
 
 #define AM 1
 #define AI (AM%2+1)%2
 
+#if TIME
 static double timer() {
     struct timeval tp;
     gettimeofday(&tp, NULL);
     return ((double) (tp.tv_sec) + tp.tv_usec * 1e-6);
 }
+#endif
+
+extern int th;
 
 int main(int argc, char* argv[])
 {
     //Обработка комадной строки: (Имя файла)
     //std::stringstream convert{ argv[1] };
     //int th; convert >> th;
-    int th;
     char* s1 = argv[1];
+
+    s1 = "C:\\tmp\\m12.mtx";
 
     //Иницализация графа
     crsGraph gr;
@@ -41,6 +49,7 @@ int main(int argc, char* argv[])
     }
     getEid(&gr, eid, edTo);
 
+
     int q[5] = { 1,2,4,8,16 };
     int q0 = 0;
     while (q0 < 5)
@@ -51,24 +60,29 @@ int main(int argc, char* argv[])
 
         cout << "\tSERIAL:\n";
         //Подсчет поддержки
+#if TIME
         double triTime = 0;
-	double start =  timer();
+	    double start =  timer();
+#endif
 #if AM
         SupAM(&gr, eid, EdgeSupport);         //Маркировка смежности  
 #endif
 #if AI
         SupAI(&gr, edTo, EdgeSupport);        //Пересечение смежности
 #endif
+#if TIME
         triTime = timer() - start ;
         cout << "The time support:\t" << (double)triTime << "\n";
-
-        //Подсчет k-truss
         triTime = 0;
-	start =  timer();
+        start = timer();
+#endif
+        //Подсчет k-truss
+        
         K_Truss(&gr, EdgeSupport, edTo, eid);
+#if TIME
         triTime = timer() - start ;
         cout << "The time K-truss:\t" << (double)triTime << "\n\n";
-
+#endif
         //Результат
         Print_res(gr.nz / 2, EdgeSupport);
     }
@@ -83,7 +97,7 @@ int main(int argc, char* argv[])
         //Подсчет поддержки
 #pragma omp barrier
         double itime = omp_get_wtime();
-        SupP(&gr, eid, EdgeSupport, th);
+        SupP(&gr, eid, EdgeSupport);
         double ftime = omp_get_wtime();
         double exec_time = ftime - itime;
         cout << "The time support:\t" << exec_time << "\n";

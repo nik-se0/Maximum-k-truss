@@ -6,10 +6,11 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define TYPE static //dynamic
-#define chunk 200
+#define distribution_S static //dynamic,static, chunk
+#define distribution_K static //dynamic,static, chunk
 using namespace std;
-int th = 2;
+int th;
+int chunk;
 
 //Results
 void Print_res(int nE, int* EdgeSupport)
@@ -102,7 +103,6 @@ void SupAM(crsGraph* gr, int* eid, int* EdgeSupport)
                 }
             }
         }
-        //Р—Р°РЅСѓР»РµРЅРёРµ
         for (int j = start[u]; j < gr->Xadj[u + 1]; j++) {
             int w = gr->Adjncy[j];
             X[w] = 0;
@@ -173,7 +173,7 @@ void SubLevel(crsGraph* gr, int* curr, int Tail, int* EdgeSupport, int k_level, 
             else if (gr->Adjncy[j] == gr->Adjncy[k]) {
                 int e2 = eid[k];  //(v,w)
                 int e3 = eid[j];  //(u,w)
-                if ((!flag[e2]) && (!flag[e3])) { //Р•СЃР»Рё С‚СЂРµСѓРіРѕР»СЊРЅРёРє РЅРµ РѕР±СЂР°Р±РѕС‚Р°РЅ
+                if ((!flag[e2]) && (!flag[e3])) { 
                     int* E = new int[4];
                     E[0] = EdgeSupport[e2] - k_level;
                     E[1] = EdgeSupport[e3] - k_level;
@@ -215,7 +215,6 @@ int K_Truss(crsGraph* gr, int* EdgeSupport, Edge* edTo, int* eid)
         flag[e] = false;
     }
 
-    //РџРѕРґСЃС‡РµС‚ k_truss
     int k_level = 0;
     int todo = nE;
     while (todo > 0) {
@@ -241,9 +240,7 @@ int K_Truss(crsGraph* gr, int* EdgeSupport, Edge* edTo, int* eid)
 
 
 //Parallel algorithm
-void SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t) {
-    th = t;
-    //return;
+void SupP(crsGraph* gr, int* eid, int* EdgeSupport) {
 #pragma omp parallel num_threads(th)
     {
         long nV = gr->V;
@@ -251,12 +248,14 @@ void SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t) {
         int* startEd = new int[nV];
         int* X = new int[gr->V];
         int* BufSup = new int[nE];
-#pragma omp for schedule( TYPE,  chunk) 
         for (long i = 0; i < nE; i++) {
             BufSup[i] = 0;
         }
+        for (long i = 0; i < nV; i++) {
+            X[i] = 0;
+        }
 
-#pragma omp for schedule( TYPE,  chunk) 
+#pragma omp for schedule(distribution_S) 
         for (int i = 0; i < nV; i++) {
             X[i] = 0;
             int j = gr->Xadj[i];
@@ -267,8 +266,8 @@ void SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t) {
             startEd[i] = j;
         }
 
-        //Подсчет поддержки
-#pragma omp for schedule( TYPE,  chunk)     
+        //������� ���������
+#pragma omp for schedule(distribution_S)     
         for (int u = 0; u < nV; u++) {
             for (int j = startEd[u]; j < gr->Xadj[u + 1]; j++) {
                 int w = gr->Adjncy[j];
@@ -292,14 +291,14 @@ void SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t) {
             }
         }
 #pragma omp barrier
-
-
-#pragma omp parallel for reduction(+:EdgeSupport[:nE])
         for (int i = 0; i < nE; i++)
         {
-            EdgeSupport[i] += BufSup[i];
-
+            if (BufSup[i] != 0) {
+#pragma omp atomic
+                EdgeSupport[i] += BufSup[i];
+            }
         }
+#pragma omp barrier
         delete[] startEd;
         delete[] X;
         delete[] BufSup;
@@ -312,7 +311,7 @@ void PCurr_init(int nE, int* EdgeSupport, int k_level, int* curr, int& Tail, boo
     int buff[BUFFER_SIZE];
     int index = 0;
 
-#pragma omp for schedule( TYPE,  chunk) 
+#pragma omp for schedule(distribution_K) 
     for (int i = 0; i < nE; i++) {
         if (EdgeSupport[i] == k_level) {
             buff[index] = i;
@@ -356,7 +355,7 @@ void PSubLevel(crsGraph* gr, int* curr, bool* InCurr, int Tail, int* EdgeSupport
     int buff[BUFFER_SIZE];
     int index = 0;
 
-#pragma omp for schedule( TYPE,  chunk)
+#pragma omp for schedule(distribution_K) 
     for (int i = 0; i < Tail; i++) {
 
         int e1 = curr[i];
@@ -379,7 +378,6 @@ void PSubLevel(crsGraph* gr, int* curr, bool* InCurr, int Tail, int* EdgeSupport
                 int e2 = eid[k];
                 int e3 = eid[j];
                 if ((!flag[e2]) && (!flag[e3])) {
-                    //Р•СЃР»Рё РІ curr Р»РµР¶РёС‚ С‚РѕР»СЊРєРѕ РѕРґРЅРѕ СЂРµР±СЂРѕ РёР· С‚СЂРµСѓРіРѕР»СЊРЅРёРєР°
                     if (EdgeSupport[e2] > k_level && EdgeSupport[e3] > k_level) {
                         int* E = new int[2];
                         E[0] = e2; E[1] = e3;
@@ -395,7 +393,7 @@ void PSubLevel(crsGraph* gr, int* curr, bool* InCurr, int Tail, int* EdgeSupport
                                 InNext[E[q]] = true;
                                 index++;
                             }
-                            if (sup <= k_level) {//РµСЃР»Рё СЌС‚Рѕ СЂРµР±СЂРѕ РѕР±СЂР°Р±Р°С‚С‹РІР°Р»Р°СЃСЊ РµС‰Рµ РѕРЅРёРј РїРѕС‚РѕРєРѕРј С‚Рѕ РІРѕР·СЂРІР°С‰Р°РµРј sup (?)
+                            if (sup <= k_level) {
 #pragma omp atomic 
                                 EdgeSupport[E[q]] += 1;
                             }
@@ -414,7 +412,6 @@ void PSubLevel(crsGraph* gr, int* curr, bool* InCurr, int Tail, int* EdgeSupport
                         }
                         delete[] E;
                     }
-                    //Р•СЃР»Рё РІ curr Р»РµР¶РёС‚ РґРІР° СЂРµР±СЂР° РёР· С‚СЂРµСѓРіРѕР»СЊРЅРёРєР°
                     else if (EdgeSupport[e2] > k_level) {
                         if ((e1 < e3 && InCurr[e3]) || !InCurr[e3]) {
                             int supE2;
@@ -504,7 +501,7 @@ void PSubLevel(crsGraph* gr, int* curr, bool* InCurr, int Tail, int* EdgeSupport
             next[tmp + y] = buff[y];
     }
 
-#pragma omp for schedule( TYPE,  chunk)
+#pragma omp for schedule(distribution_K)
     for (int i = 0; i < Tail; i++) {
         int e = curr[i];
 
@@ -533,7 +530,7 @@ int PK_Truss(crsGraph* gr, int* EdgeSupport, Edge* edTo, int* eid)
     {
         int rank = omp_get_thread_num();
 
-#pragma omp for schedule(TYPE,  chunk) 
+#pragma omp for schedule(distribution_K) 
         for (int e = 0; e < nE; e++) {
             flag[e] = false;
             InCurr[e] = false;
@@ -574,3 +571,4 @@ int PK_Truss(crsGraph* gr, int* EdgeSupport, Edge* edTo, int* eid)
     return k_level;
 
 }
+

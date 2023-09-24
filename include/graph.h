@@ -2,6 +2,8 @@
 #include"graphio.h"
 using namespace std;
 
+
+
 struct Edge {
     int u;
     int v;
@@ -30,7 +32,7 @@ int K_Truss(crsGraph* gr, int* EdgeSupport, Edge* edTo, int* eid);
 
 
 //Параллельный алгоритм
-void SupP(crsGraph* gr, int* eid, int* EdgeSupport, int t);    //Подсчет поддержки
+void SupP(crsGraph* gr, int* eid, int* EdgeSupport);    //Подсчет поддержки
 void PCurr_init(int nE, int* EdgeSupport, int k_level, int* curr, int& Tail, bool* InCurr);
 void PSubLevel(crsGraph* gr, int* curr, bool* InCurr, int Tail, int* EdgeSupport, int k_level, int* next, bool* InNext, int& nextTail, bool* flag, Edge* edTo,int* eid);
 int PK_Truss(crsGraph* gr, int* EdgeSupport, Edge* edTo, int* eid);
