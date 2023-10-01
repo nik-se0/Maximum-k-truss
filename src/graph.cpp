@@ -6,9 +6,10 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define distribution_S static //dynamic,static, chunk
-#define distribution_K static //dynamic,static, chunk
+#define distribution_S static, 16 //dynamic,static, chunk
+#define distribution_K dynamic, 10 //dynamic,static, chunk
 using namespace std;
+
 int th;
 int chunk;
 
