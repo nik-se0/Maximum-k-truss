@@ -9,7 +9,6 @@
 #define distribution_S static //dynamic,static, chunk
 #define distribution_K static //dynamic,static, chunk
 using namespace std;
-
 int th;
 int chunk;
 
